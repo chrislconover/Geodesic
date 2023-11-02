@@ -10,9 +10,17 @@ import CGeodesic
 
 // For more information see https://en.wikipedia.org/wiki/Geodesics_on_an_ellipsoid
 
+/// Any type tha looks like a location.
+/// Allows extension to any user defined types.
+public protocol LocationType {
+    var latitude: CLLocationDegrees { get }
+    var longitude: CLLocationDegrees { get }
+}
+
+
 // The direct problem
 
-extension CLLocationCoordinate2D {
+extension LocationType {
 	/// Returns the coordinate *B* at `azimuth` *α1* and `distance` *s12* from `self` *A*.
 	/// - parameter azimuth: The azimuth *α1* at `self` *A* in degrees.
 	/// - parameter distance: The distance *s12* in meters.
@@ -20,7 +28,7 @@ extension CLLocationCoordinate2D {
 	public func coordinate(atAzimuth azimuth: Double, distance: Double) -> CLLocationCoordinate2D {
 		var lat: Double = 0
 		var long: Double = 0
-		geod_direct(&Self.wgs84, latitude, longitude, azimuth, distance, &lat, &long, nil)
+		geod_direct(&wgs84, latitude, longitude, azimuth, distance, &lat, &long, nil)
 		return CLLocationCoordinate2D(latitude: lat, longitude: long)
 	}
 
@@ -30,7 +38,7 @@ extension CLLocationCoordinate2D {
 	/// - returns: The forward azimuth *α2* in degrees.
 	public func forwardAzimuth(atAzimuth azimuth: Double, distance: Double) -> Double {
 		var α2: Double = 0
-		geod_direct(&Self.wgs84, latitude, longitude, azimuth, distance, nil, nil, &α2)
+		geod_direct(&wgs84, latitude, longitude, azimuth, distance, nil, nil, &α2)
 		return α2
 	}
 
@@ -42,61 +50,61 @@ extension CLLocationCoordinate2D {
 		var lat: Double = 0
 		var long: Double = 0
 		var α2: Double = 0
-		geod_direct(&Self.wgs84, latitude, longitude, azimuth, distance, &lat, &long, &α2)
+		geod_direct(&wgs84, latitude, longitude, azimuth, distance, &lat, &long, &α2)
 		return (CLLocationCoordinate2D(latitude: lat, longitude: long), α2)
 	}
 }
 
 // The inverse problem
 
-extension CLLocationCoordinate2D {
+extension LocationType {
 	/// Returns the distance *s12* between `self` *A* and `other` *B* in meters.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: The distance *s12* in meters.
-	public func distanceTo(_ other: CLLocationCoordinate2D) -> Double {
+	public func distanceTo(_ other: LocationType) -> Double {
 		var s12: Double = 0
-		geod_inverse(&Self.wgs84, latitude, longitude, other.latitude, other.longitude, &s12, nil, nil)
+		geod_inverse(&wgs84, latitude, longitude, other.latitude, other.longitude, &s12, nil, nil)
 		return s12
 	}
 
 	/// Returns the azimuth *α1* between `self` *A* and `other` *B* in degrees.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: The initial true course *α1* in degrees.
-	public func initialTrueCourseTo(_ other: CLLocationCoordinate2D) -> Double {
+	public func initialTrueCourseTo(_ other: LocationType) -> Double {
 		var α1: Double = 0
-		geod_inverse(&Self.wgs84, latitude, longitude, other.latitude, other.longitude, nil, &α1, nil)
+		geod_inverse(&wgs84, latitude, longitude, other.latitude, other.longitude, nil, &α1, nil)
 		return α1
 	}
 
 	/// Returns the azimuth *α2* between `self` *A* and `other` *B* in degrees.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: The final true course *α2* in degrees.
-	public func finalTrueCourseTo(_ other: CLLocationCoordinate2D) -> Double {
+	public func finalTrueCourseTo(_ other: LocationType) -> Double {
 		var α2: Double = 0
-		geod_inverse(&Self.wgs84, latitude, longitude, other.latitude, other.longitude, nil, nil, &α2)
+		geod_inverse(&wgs84, latitude, longitude, other.latitude, other.longitude, nil, nil, &α2)
 		return α2
 	}
 
 	/// Returns the distance *s12* , the initial true course *α1*, and the final true course *α2* between `self` *A* and `other` *B*.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: A tuple containing the distance *s12* in meters, the initial true course *α1* in degrees, and the final true course *α2* in degrees.
-	public func distanceAndCoursesTo(_ other: CLLocationCoordinate2D) -> (s12: Double, α1: Double, α2: Double) {
+	public func distanceAndCoursesTo(_ other: LocationType) -> (s12: Double, α1: Double, α2: Double) {
 		var s12: Double = 0
 		var α1: Double = 0
 		var α2: Double = 0
-		geod_inverse(&Self.wgs84, latitude, longitude, other.latitude, other.longitude, &s12, &α1, &α2)
+		geod_inverse(&wgs84, latitude, longitude, other.latitude, other.longitude, &s12, &α1, &α2)
 		return (s12, α1, α2)
 	}
 }
 
-extension CLLocationCoordinate2D {
+extension LocationType {
 	/// Returns the coordinate *C* at `distance` *s13* along the geodesic from `self` *A* to `other` *B*.
 	/// - parameter distance: The distance from `self` *A* where the coordinate should be located, in meters.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: The coordinate at `distance` *s13*.
-	public func coordinate(atDistance distance: Double, alongGeodesicTo other: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+	public func coordinate(atDistance distance: Double, alongGeodesicTo other: LocationType) -> CLLocationCoordinate2D {
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		geod_position(&l, distance, &lat, &long, nil)
@@ -107,9 +115,9 @@ extension CLLocationCoordinate2D {
 	/// - parameter distance: The distance from `self` *A* where the coordinate should be located, in meters.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: A tuple containing the the coordinate *C* and forward azimuth *α3* in degrees at `distance`.
-	public func coordinateAndForwardAzimuth(atDistance distance: Double, alongGeodesicTo other: CLLocationCoordinate2D) -> (C: CLLocationCoordinate2D, α3: Double) {
+	public func coordinateAndForwardAzimuth(atDistance distance: Double, alongGeodesicTo other: LocationType) -> (C: CLLocationCoordinate2D, α3: Double) {
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		var α3: Double = 0
@@ -121,9 +129,9 @@ extension CLLocationCoordinate2D {
 	/// - parameter fraction: The fraction of the distance between `self` *A* and `other` *B* where the coordinate should be located.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: The coordinate *C* at `fraction` of the distance *s13* to `other`.
-	public func coordinate(atFractionOfDistance fraction: Double, alongGeodesicTo other: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+	public func coordinate(atFractionOfDistance fraction: Double, alongGeodesicTo other: LocationType) -> CLLocationCoordinate2D {
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		geod_position(&l, l.s13 * fraction, &lat, &long, nil)
@@ -134,9 +142,9 @@ extension CLLocationCoordinate2D {
 	/// - parameter fraction: The fraction of the distance between `self` *A* and `other` *B* where the coordinate should be located.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: A tuple containing the the coordinate *C* and forward azimuth *α3* in degrees at `fraction` of the distance *s13* to `other`.
-	public func coordinateAndForwardAzimuth(atFractionOfDistance fraction: Double, alongGeodesicTo other: CLLocationCoordinate2D) -> (C: CLLocationCoordinate2D, α3: Double) {
+	public func coordinateAndForwardAzimuth(atFractionOfDistance fraction: Double, alongGeodesicTo other: LocationType) -> (C: CLLocationCoordinate2D, α3: Double) {
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		var α3: Double = 0
@@ -145,14 +153,14 @@ extension CLLocationCoordinate2D {
 	}
 }
 
-extension CLLocationCoordinate2D {
+extension LocationType {
 	/// Returns the coordinates of waypoints spaced at `spacing` along the geodesic from `self` *A* to `other` *B*.
 	/// - parameter spacing: The desired waypoint spacing, in meters.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: An array of waypoint coordinates.
-	public func waypoints(spacedAtDistance spacing: Double, alongGeodesicTo other: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
+	public func waypoints(spacedAtDistance spacing: Double, alongGeodesicTo other: LocationType) -> [CLLocationCoordinate2D] {
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		var results: [CLLocationCoordinate2D] = []
@@ -167,9 +175,9 @@ extension CLLocationCoordinate2D {
 	/// - parameter spacing: The desired waypoint spacing, in meters.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: An array of tuples containing the the coordinate and forward azimuth of the waypoints.
-	public func waypointsAndForwardAzimuths(spacedAtDistance spacing: Double, alongGeodesicTo other: CLLocationCoordinate2D) -> [(C: CLLocationCoordinate2D, α3: Double)] {
+	public func waypointsAndForwardAzimuths(spacedAtDistance spacing: Double, alongGeodesicTo other: LocationType) -> [(C: CLLocationCoordinate2D, α3: Double)] {
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		var α3: Double = 0
@@ -185,10 +193,10 @@ extension CLLocationCoordinate2D {
 	/// - parameter count: The desired number of waypoints.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: An array of waypoint coordinates.
-	public func waypoints(count: Int, alongGeodesicTo other: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
+	public func waypoints(count: Int, alongGeodesicTo other: LocationType) -> [CLLocationCoordinate2D] {
 		precondition(count > 0, "Waypoint count must be positive")
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		var α3: Double = 0
@@ -205,10 +213,10 @@ extension CLLocationCoordinate2D {
 	/// - parameter count: The desired number of waypoints.
 	/// - parameter other: The destination coordinate *B*.
 	/// - returns: An array of tuples containing the the coordinate and forward azimuth of the waypoints.
-	public func waypointsAndForwardAzimuths(count: Int, alongGeodesicTo other: CLLocationCoordinate2D) -> [(C: CLLocationCoordinate2D, α3: Double)] {
+	public func waypointsAndForwardAzimuths(count: Int, alongGeodesicTo other: LocationType) -> [(C: CLLocationCoordinate2D, α3: Double)] {
 		precondition(count > 0, "Waypoint count must be positive")
 		var l = geod_geodesicline()
-		geod_inverseline(&l, &Self.wgs84, latitude, longitude, other.latitude, other.longitude, 0)
+		geod_inverseline(&l, &wgs84, latitude, longitude, other.latitude, other.longitude, 0)
 		var lat: Double = 0
 		var long: Double = 0
 		var α3: Double = 0
@@ -222,11 +230,14 @@ extension CLLocationCoordinate2D {
 	}
 }
 
-extension CLLocationCoordinate2D {
-	/// The WGS-84 ellipsoid.
-	static var wgs84: geod_geodesic = {
-		var g = geod_geodesic()
-		geod_init(&g, 6378137, 1 / 298.257223563)
-		return g
-	}()
-}
+
+/// The WGS-84 ellipsoid.
+internal var wgs84: geod_geodesic = {
+    var g = geod_geodesic()
+    geod_init(&g, 6378137, 1 / 298.257223563)
+    return g
+}()
+
+
+extension CLLocationCoordinate2D: LocationType {}
+
